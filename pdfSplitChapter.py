@@ -33,11 +33,10 @@ class PdfSplit:
         subdir = self.dest_dir + f'{n:03}' + self.format_filenames(section[1])
         if not Path(subdir).exists():
           os.makedirs(subdir) 
-        if y == 0:
-          self.filename = subdir + "/" + f'{n:03}' + section[1] + ".pdf"
-        n = n + 1
         y = 0
-        self.current_page = section[2]
+        self.filename = subdir + "/" + f'{y:03}' + self.format_filenames(section[1]) + ".pdf"
+        n = n + 1
+        # self.current_page = section[2]
         # if self.next_filename == "":
         #   self.next_filename = subdir + "/" + "0000TABLE_OF_CONTENTS.pdf"
         #   self.current_page = section[2]
@@ -52,7 +51,6 @@ class PdfSplit:
         # somehow need to make next_filename make sense... 
 
 
-        # self.write_out_pdf() # causes error because filename becomes ""? (blank)
         ####################################
 
       if section[0] == 2:
@@ -61,11 +59,11 @@ class PdfSplit:
         
         # filename = subdir + "/" + f'{y:03}' + format_filenames(section[1]) + ".pdf"
         y = y + 1
-        if (self.chapter_found) is False:
-          self.current_page = section[2]
+        self.current_page = section[2] - 2
         self.write_out_pdf()
         self.filename = subdir + "/" + f'{y:03}' + self.format_filenames(section[1]) + ".pdf"
-        self.chapter_found = False
+        self.last_page_written = self.current_page + 1
+        self.last_section = True
     self.current_page = self.length
     self.write_out_pdf()
 
@@ -81,7 +79,6 @@ class PdfSplit:
     out_pdf.close()
     in_pdf.close()
     # self.filename = self.next_filename
-    self.last_page_written = self.current_page + 1
 
 
 
