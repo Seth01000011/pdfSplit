@@ -6,16 +6,85 @@ import os, sys
 # In some parts of the documentation we skip closing Pdf objects for brevity. In
 # production code, you should open them in a with block or explicitly close them.
 
-dest_dir = "./split_pdfs/"
+class PdfSplit:
 
-if not Path(dest_dir).exists():
-  os.makedirs(dest_dir)
+  def __init__(self, input_pdf_path, dest_dir = "./split_pdfs/"):
+    self.input_pdf_path = input_pdf_path
+    with fitz.Document(input_pdf_path) as in_pdf:
+      self.toc = in_pdf.get_toc()
+    self.current_page = 0
+    self.last_page_written = 0
+    self.filename = ""
+    self.next_filename = ""
+    self.dest_dir = dest_dir
+    if not Path(self.dest_dir).exists():
+      os.makedirs(self.dest_dir)
+
+  def split_by_chapter_and_section(self):
+    # with fitz.Document(self.input_pdf_path) as in_pdf:
+    n = 0 # iterator for chapters
+    y = 0 # iterator for subsections
+    for section in self.toc:
+      ###########################
+      # need to find a way to make everything written the "current"?
+      # everything in the last iteration is skipped since it hits the 'end'
+      # and solving that will probably solve the issue of the beginning of the
+      # next 'chapter' being put in the end of the last chapter...
+      ###########################
+      if section[0] == 1:
+        subdir = self.dest_dir + f'{n:03}' + self.format_filenames(section[1])
+        if not Path(subdir).exists():
+          os.makedirs(subdir) 
+        n = n + 1
+        self.current_page = section[2]
+        self.chapter_page = section[2]
+        if self.next_filename == "":
+          self.next_filename = subdir + "/" + "0000TABLE_OF_CONTENTS.pdf"
+          self.current_page = 1
+        self.chapter_found = True
+        ####################################
+        # need to insert something here, it skips right through this and includes
+        # the next few pages of the next "chapter" in the previous "chapter's" last
+        # out_pdf...
+        
+        # gotta fix self.next_filename being ""..
+        # really want to force the next if statement to run!?
+        # somehow need to make next_filename make sense... 
 
 
-def format_filenames(string):
-  string = string.replace("/","_")
-  string = string.replace(" ", "_")
-  return string
+        # self.write_out_pdf() # causes error because filename becomes ""? (blank)
+        ####################################
+
+      if section[0] == 2:
+        self.filename = self.next_filename
+        self.next_filename = subdir + "/" + f'{y:03}' + self.format_filenames(section[1]) + ".pdf"
+        # filename = subdir + "/" + f'{y:03}' + format_filenames(section[1]) + ".pdf"
+        y = y + 1
+        if (self.chapter_found) is False:
+          self.current_page = section[2]-2
+        self.write_out_pdf()
+        self.chapter_found = False
+
+
+  def write_out_pdf(self):
+    # reference_pdf = fitz.open(self.input_pdf_path)
+    in_pdf = fitz.open(self.input_pdf_path)
+    out_pdf = fitz.open()
+    out_pdf = fitz.open()
+    out_pdf.insert_pdf(in_pdf, from_page=self.last_page_written, to_page=self.current_page, \
+      start_at=0, annots=False, show_progress=1)
+    out_pdf.save(self.filename)
+    out_pdf.close()
+    in_pdf.close()
+    self.filename = self.next_filename
+    self.last_page_written = self.current_page + 1
+
+
+
+  def format_filenames(self, string):
+    string = string.replace("/","_")
+    string = string.replace(" ", "_")
+    return string
 
 # splits pdf into individual pages
 def split_every_page(input_pdf):
@@ -25,77 +94,12 @@ def split_every_page(input_pdf):
       out_pdf.pages.append(page)
       out_pdf.save(f'./split_pdfs/page{n:02d}.pdf')
 
-def split_by_chapter_and_section(input_pdf):
-  toc = []
-  filename = ""
-  next_filename = ""
-  last_page_written = 0
-  current_page = 0
-
-  with fitz.Document(input_pdf) as in_pdf:
-    toc = in_pdf.get_toc()
-    # print(toc)
-  n = 0 # iterator for chapters
-  y = 0 # iterator for subsections
-  for section in toc:
-    if section[0] == 1:
-      subdir = dest_dir + f'{n:03}' + format_filenames(section[1])
-      if not Path(subdir).exists():
-        os.makedirs(subdir)
-      n = n + 1
-      current_page = section[2]
-      # need to insert something here, it skips right through this and includes
-      # the next few pages of the next "chapter" in the previous "chapter's" last
-      # out_pdf...
-
-    if filename == "":
-      filename = subdir + "/" + "0000TABLE_OF_CONTENTS.pdf"
-      current_page = 1
-    if section[0] == 2:
-      next_filename = subdir + "/" + f'{y:03}' + format_filenames(section[1]) + ".pdf"
-      # filename = subdir + "/" + f'{y:03}' + format_filenames(section[1]) + ".pdf"
-      y = y + 1
-      current_page = section[2]-2
-      in_pdf = fitz.open(input_pdf)
-      out_pdf = fitz.open()
-      out_pdf.insert_pdf(in_pdf, from_page=last_page_written, to_page=current_page, \
-        start_at=0, annots=False, show_progress=1)
-      out_pdf.save(filename)
-      out_pdf.close()
-      in_pdf.close()
-      filename = next_filename
-      last_page_written = current_page + 1
-
-
-
-
-  # with Pdf.open(input_pdf) as in_pdf:
-  #   with in_pdf.open_outline() as outline:
-  #     n = 0 # iterator for formatting subdir names based on chapter.title
-  #     for chapter in outline.root:
-  #       subdir = dest_dir + f'{n:03}' + format_filenames(chapter.title)
-  #       if not Path(subdir).exists():
-  #         os.makedirs(subdir)
-  #       n = n + 1
-  #       for section in chapter.children:
-  #         out_pdf = Pdf.new()
-  #         filename = subdir + format_filenames(section.title) + ".pdf"
-  #         section_dest = section.destination
-  #         # Page(direct_dest[section])
-
-
-  #         if not Path(filename).exists():
-  #           for pages in section.obj:
-  #             out_pdf.pages.append(pages)
-  #           out_pdf.save(filename)
-
-
-
-    
-      
+pdf = PdfSplit(input_pdf_path="outbackManual.pdf")
+pdf.split_by_chapter_and_section()
 
 ######################
 # uncomment the following to allow usage in terminal
+# this is old... but I should reimplement it when I get this working
 
 # if len(sys.argv) < 2:
 #   raise ValueError("Usage: Type path/filename.pdf for the pdf you want to split")
@@ -108,4 +112,3 @@ def split_by_chapter_and_section(input_pdf):
 
 ########################
 
-split_by_chapter_and_section("outbackManual.pdf")
