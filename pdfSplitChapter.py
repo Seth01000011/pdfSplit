@@ -1,4 +1,3 @@
-from pikepdf import Pdf, Page
 from pathlib import Path
 import fitz
 import os, sys
@@ -8,14 +7,13 @@ import os, sys
 
 class PdfSplit:
 
-  def __init__(self, input_pdf_path, dest_dir = "./split_pdfs/"):
+  def __init__(self, input_pdf_path=sys.argv[1], dest_dir = "./split_pdfs/"):
     self.input_pdf_path = input_pdf_path
     with fitz.Document(input_pdf_path) as in_pdf:
       self.toc = in_pdf.get_toc()
+      self.length = in_pdf.page_count
     self.current_page = 0
     self.last_page_written = 0
-    self.filename = ""
-    self.next_filename = ""
     self.dest_dir = dest_dir
     if not Path(self.dest_dir).exists():
       os.makedirs(self.dest_dir)
@@ -35,12 +33,14 @@ class PdfSplit:
         subdir = self.dest_dir + f'{n:03}' + self.format_filenames(section[1])
         if not Path(subdir).exists():
           os.makedirs(subdir) 
+        if y == 0:
+          self.filename = subdir + "/" + f'{n:03}' + section[1] + ".pdf"
         n = n + 1
+        y = 0
         self.current_page = section[2]
-        self.chapter_page = section[2]
-        if self.next_filename == "":
-          self.next_filename = subdir + "/" + "0000TABLE_OF_CONTENTS.pdf"
-          self.current_page = 1
+        # if self.next_filename == "":
+        #   self.next_filename = subdir + "/" + "0000TABLE_OF_CONTENTS.pdf"
+        #   self.current_page = section[2]
         self.chapter_found = True
         ####################################
         # need to insert something here, it skips right through this and includes
@@ -56,14 +56,18 @@ class PdfSplit:
         ####################################
 
       if section[0] == 2:
-        self.filename = self.next_filename
-        self.next_filename = subdir + "/" + f'{y:03}' + self.format_filenames(section[1]) + ".pdf"
+        # self.filename = self.next_filename
+        # self.next_filename = subdir + "/" + f'{y:03}' + self.format_filenames(section[1]) + ".pdf"
+        
         # filename = subdir + "/" + f'{y:03}' + format_filenames(section[1]) + ".pdf"
         y = y + 1
         if (self.chapter_found) is False:
-          self.current_page = section[2]-2
+          self.current_page = section[2]
         self.write_out_pdf()
+        self.filename = subdir + "/" + f'{y:03}' + self.format_filenames(section[1]) + ".pdf"
         self.chapter_found = False
+    self.current_page = self.length
+    self.write_out_pdf()
 
 
   def write_out_pdf(self):
@@ -76,7 +80,7 @@ class PdfSplit:
     out_pdf.save(self.filename)
     out_pdf.close()
     in_pdf.close()
-    self.filename = self.next_filename
+    # self.filename = self.next_filename
     self.last_page_written = self.current_page + 1
 
 
@@ -94,7 +98,7 @@ def split_every_page(input_pdf):
       out_pdf.pages.append(page)
       out_pdf.save(f'./split_pdfs/page{n:02d}.pdf')
 
-pdf = PdfSplit(input_pdf_path="outbackManual.pdf")
+pdf = PdfSplit()
 pdf.split_by_chapter_and_section()
 
 ######################
